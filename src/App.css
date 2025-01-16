@@ -1,0 +1,83 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  overflow-x: hidden;
+  min-height: 100vh;
+  background-color: #F1EFE0;
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+.nonfiction-page {
+  background-color: #F1EFE0;
+  width: 100vw;
+  margin: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: hidden;
+}
+
+.nonfiction-header {
+  font-family: "Instrument Serif", 'Times New Roman', Times, serif;
+  font-size: 64px;
+  color: #1f2937;
+  margin: 0 0 20px 0;
+  padding: 0;
+  text-align: right;
+  width: 100%;
+}
+
+.main-container {
+  position: relative;
+  width: 70%;
+  margin: 40px 0;
+}
+
+.content-box {
+  position: relative;
+  border: 2px solid black;
+  margin-bottom: 24px;
+  box-shadow: -8px 8px 0px 0px rgba(0, 0, 0, 1);
+}
+
+.content-box::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 100%;
+  height: 100%;
+  background: black;
+  z-index: -1;
+}
+
+.animation-section {
+  width: 100%;
+  height: 500px;
+  overflow: hidden;
+}
+
+.text-section {
+  max-width: 80%;
+  margin: 0 auto;
+  text-align: left;
+  padding-top: 2%;
+  padding-bottom: 5%;
+  padding-left: 5%;
+  padding-right: 5%;
+}
+
+.text-section p {
+  font-size: 1.2rem;
+  line-height: 1.3;
+  font-family: "Instrument Sans", sans-serif;
+  margin-bottom: 2rem;
+}
+
+.text-section p:last-child {
+  margin-bottom: 0;
+}
