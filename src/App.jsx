@@ -17,6 +17,15 @@ const PerspectiveRoad = ({ containerWidth }) => {
     maxScale: 2.5,
     speed: 2
   });
+
+  // Add new ref for sun position
+  const sunRef = useRef({
+    x: -50,
+    y: 0,
+    progress: 0,
+    speed: 0.001
+  });
+
   // Generate dashed line segments
   const generateDashedLine = (
     startX,
@@ -93,6 +102,79 @@ const PerspectiveRoad = ({ containerWidth }) => {
     svgEl.appendChild(post);
   };
 
+  const drawSun = (rs, svgEl) => {
+    const sun = sunRef.current;
+    
+    // Update sun progress
+    sun.progress += sun.speed;
+    if (sun.progress > 1) sun.progress = 0;
+    
+    // Calculate sun position
+    const startX = -50;
+    const endX = containerWidth * 1.2;
+    sun.x = startX + (endX - startX) * sun.progress;
+    
+    // Calculate y position using a full sine wave
+    const horizonY = svgRef.current.height.baseVal.value * 0.2;
+    const maxHeight = horizonY - 300;
+    sun.y = horizonY - maxHeight * (1 - Math.sin(sun.progress * Math.PI)) - 100;
+
+    // Only draw if within bounds
+    if (sun.y < svgRef.current.height.baseVal.value) {
+      // Only draw visible portions of the sun and rays
+      const sunSize = 60;
+      
+      // Create a clip path for the sun
+      const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
+      clipPath.setAttribute("id", "sunClip");
+      
+      // Add a rectangle that covers everything above the horizon
+      const clipRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      clipRect.setAttribute("x", "0");
+      clipRect.setAttribute("y", "0");
+      clipRect.setAttribute("width", containerWidth);
+      clipRect.setAttribute("height", horizonY);
+      clipPath.appendChild(clipRect);
+      svgEl.appendChild(clipPath);
+
+      // Create a group for the sun and rays with the clip path
+      const sunGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      sunGroup.setAttribute("clip-path", "url(#sunClip)");
+      
+      // Draw the sun
+      const sunCircle = rs.circle(sun.x, sun.y, sunSize, {
+        fill: '#FFD700',
+        fillStyle: 'solid',
+        stroke: 'black',
+        strokeWidth: 2,
+        roughness: 0.3
+      });
+      sunGroup.appendChild(sunCircle);
+
+      // Add rays with gap
+      const rayLength = 20;
+      const rayGap = 10;
+      const numRays = 8;
+      for (let i = 0; i < numRays; i++) {
+        const angle = (i * 2 * Math.PI) / numRays;
+        const rayX1 = sun.x + Math.cos(angle) * (sunSize / 2 + rayGap);
+        const rayY1 = sun.y + Math.sin(angle) * (sunSize / 2 + rayGap);
+        const rayX2 = sun.x + Math.cos(angle) * (sunSize / 2 + rayGap + rayLength);
+        const rayY2 = sun.y + Math.sin(angle) * (sunSize / 2 + rayGap + rayLength);
+        
+        const ray = rs.line(rayX1, rayY1, rayX2, rayY2, {
+          stroke: 'black',
+          strokeWidth: 3,
+          roughness: 0.5
+        });
+        sunGroup.appendChild(ray);
+      }
+
+      // Add the sun group to the main SVG
+      svgEl.appendChild(sunGroup);
+    }
+  };
+
   // Main animation loop
   const drawFrame = (timestamp) => {
     const svgEl = svgRef.current;
@@ -149,7 +231,10 @@ const PerspectiveRoad = ({ containerWidth }) => {
     gradient.appendChild(stop2);
     svgEl.appendChild(gradient);
 
-    // 1. Draw road shading first (in background)
+    // 1. Draw sun first (it will be the bottom layer)
+    drawSun(rs, svgEl);
+
+    // 2. Draw road shading
     const roadShading = rs.polygon([
       [startX - 5, startY + 2],
       [startX + 5, startY + 3],
@@ -164,7 +249,7 @@ const PerspectiveRoad = ({ containerWidth }) => {
     });
     svgEl.appendChild(roadShading);
 
-    // 2. Draw horizon line
+    // 3. Draw horizon line on top
     const horizon = rs.line(0, horizonY, width, horizonY, {
       stroke: 'black',
       strokeWidth: 2,
@@ -173,7 +258,7 @@ const PerspectiveRoad = ({ containerWidth }) => {
     });
     svgEl.appendChild(horizon);
 
-    // 3. Draw left road line
+    // 4. Draw left road line
     const leftRoad = rs.line(
       leftRoadTopX, 
       leftRoadTopY, 
@@ -188,7 +273,7 @@ const PerspectiveRoad = ({ containerWidth }) => {
     );
     svgEl.appendChild(leftRoad);
 
-    // 4. Draw right road line
+    // 5. Draw right road line
     const rightRoad = rs.line(
       startX + 5, 
       startY, 
@@ -255,7 +340,6 @@ const PerspectiveRoad = ({ containerWidth }) => {
     // Draw the sign at the interpolated x
     // drawSign(rs, svgEl, signX, sign.y, currentScale, seed + 4);
 
-    // Request next frame
     animationRef.current = requestAnimationFrame(drawFrame);
   };
 
