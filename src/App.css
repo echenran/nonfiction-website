@@ -25,6 +25,10 @@
     stroke var(--transition-duration) var(--transition-timing);
 }
 
+html:not([data-theme]) {
+  transition: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -140,6 +144,7 @@ body {
 .text-section a {
   color: var(--text-color);
   text-decoration: none;
+  font-weight: 500;
   /* No extra transitions */
 }
 

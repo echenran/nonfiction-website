@@ -255,7 +255,7 @@ const PerspectiveRoad = ({ containerWidth, isDarkMode, onDarkModeChange }) => {
     if (targetStrokeColor === 'white') targetStrokeColor = '#FFFFFF';
     
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const targetGradientColor = isDark ? '#271B5A' : '#e0e0e0';
+    const targetGradientColor = isDark ? '#271B5A' : '#c5c5c5';
 
     const transition = colorTransitionRef.current;
     if (
@@ -500,7 +500,7 @@ const NonfictionPage = () => {
 
           <div className="text-section">
             <p>
-              We build with thought and optimism. 
+              We build technology with thought and optimism. 
               Our mission is to use artificial intelligence as a tool 
               to augment human intelligence, output, and ability.
             </p>
