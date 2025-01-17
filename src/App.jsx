@@ -2,31 +2,114 @@ import React, { useEffect, useRef, useState } from 'react';
 import rough from 'roughjs';
 import './App.css';
 
-const PerspectiveRoad = ({ containerWidth }) => {
+const PerspectiveRoad = ({ containerWidth, isDarkMode, onDarkModeChange }) => {
   const svgRef = useRef(null);
   const animationRef = useRef(null);
 
-  // We don't need separate state for containerWidth unless you prefer it;
-  // we can just use the prop directly.
-
   const signRef = useRef({
-    y: 150,    // Changed from 180 to 130 (50px higher)
-    minY: 150, // Changed from 180 to 130 (50px higher)
-    maxY: 620, 
+    y: 150,
+    minY: 150,
+    maxY: 620,
     minScale: 0.001,
     maxScale: 2.5,
     speed: 2
   });
 
-  // Add new ref for sun position
   const sunRef = useRef({
     x: -50,
     y: 0,
-    progress: 0,
-    speed: 0.001
+    progress: 0.35,
+    speed: 0.0002
   });
 
-  // Generate dashed line segments
+  const starsRef = useRef(null);
+
+  const colorTransitionRef = useRef({
+    isTransitioning: false,
+    startTime: 0,
+    startColor: '',
+    targetColor: '',
+    startGradientColor: '',
+    targetGradientColor: '',
+    duration: 1500
+  });
+
+  const interpolateColor = (startColor, endColor, progress) => {
+    const normalizeColor = (color) => {
+      if (!color.startsWith('#')) {
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.fillStyle = color;
+        return ctx.fillStyle;
+      }
+      return color;
+    };
+
+    startColor = normalizeColor(startColor);
+    endColor = normalizeColor(endColor);
+
+    const start = {
+      r: parseInt(startColor.slice(1, 3), 16),
+      g: parseInt(startColor.slice(3, 5), 16),
+      b: parseInt(startColor.slice(5, 7), 16)
+    };
+    
+    const end = {
+      r: parseInt(endColor.slice(1, 3), 16),
+      g: parseInt(endColor.slice(3, 5), 16),
+      b: parseInt(endColor.slice(5, 7), 16)
+    };
+
+    const r = Math.round(start.r + (end.r - start.r) * progress);
+    const g = Math.round(start.g + (end.g - start.g) * progress);
+    const b = Math.round(start.b + (end.b - start.b) * progress);
+
+    const toHex = (n) => n.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  };
+
+  useEffect(() => {
+    const numStars = 50;
+    const stars = [];
+    const width = containerWidth;
+    const height = window.innerWidth <= 768 ? 250 : 400;
+    
+    for (let i = 0; i < numStars; i++) {
+      stars.push({
+        x: Math.random() * width,
+        y: Math.random() * (height * 0.18),
+        size: Math.random() * 1.5 + 0.5,
+        opacity: 0
+      });
+    }
+    starsRef.current = stars;
+  }, [containerWidth]);
+
+  const updateStarOpacities = (isDark, timestamp) => {
+    if (!starsRef.current) return;
+    
+    const horizonY = svgRef.current.height.baseVal.value * 0.2;
+    const sunY = sunRef.current.y;
+    
+    const fadeStartY = horizonY + 100;
+    const fadeEndY = horizonY;
+    
+    let targetOpacity = 1;
+    if (sunY < fadeStartY && sunY > fadeEndY) {
+      targetOpacity = (sunY - fadeEndY) / (fadeStartY - fadeEndY);
+    } else if (sunY <= fadeEndY) {
+      targetOpacity = 0;
+    }
+    
+    starsRef.current.forEach(star => {
+      const opacityStep = 0.005;
+      if (star.opacity < targetOpacity) {
+        star.opacity = Math.min(targetOpacity, star.opacity + opacityStep);
+      } else if (star.opacity > targetOpacity) {
+        star.opacity = Math.max(targetOpacity, star.opacity - opacityStep);
+      }
+    });
+  };
+
   const generateDashedLine = (
     startX,
     startY,
@@ -50,7 +133,6 @@ const PerspectiveRoad = ({ containerWidth }) => {
 
     for (let i = -1; i < numSegments + 1; i++) {
       let t = i / numSegments;
-      // incorporate animation offset
       t = (t + baseOffset) % 1;
 
       if (t >= 0 && t <= 1) {
@@ -73,62 +155,32 @@ const PerspectiveRoad = ({ containerWidth }) => {
     return points;
   };
 
-  // A helper to draw the sign at (x, y) with a given scale
-  const drawSign = (rs, svgEl, x, y, scale, seed) => {
-    const w = 50 * scale;
-    const h = 30 * scale;
-    const signRect = rs.rectangle(x, y, w, h, {
-      fill: 'lightgray',
-      fillWeight: 1,
-      stroke: 'black',
-      strokeWidth: 1,
-      roughness: 0.5,
-      seed
-    });
-    svgEl.appendChild(signRect);
-
-    const postW = 5 * scale;
-    const postH = 25 * scale;
-    const postX = x + (w - postW) / 2;
-    const postY = y + h;
-    const post = rs.rectangle(postX, postY, postW, postH, {
-      fill: 'gray',
-      fillWeight: 1,
-      stroke: 'black',
-      strokeWidth: 1,
-      roughness: 0.5,
-      seed: seed + 1
-    });
-    svgEl.appendChild(post);
-  };
-
   const drawSun = (rs, svgEl) => {
     const sun = sunRef.current;
-    
-    // Update sun progress
     sun.progress += sun.speed;
     if (sun.progress > 1) sun.progress = 0;
     
-    // Calculate sun position
-    const startX = -50;
-    const endX = containerWidth * 1.2;
+    const isMobile = window.innerWidth <= 768;
+    const startX = isMobile ? -150 : -100;
+    const endX = containerWidth * (isMobile ? 1.4 : 1.2);
     sun.x = startX + (endX - startX) * sun.progress;
     
-    // Calculate y position using a full sine wave
-    const horizonY = svgRef.current.height.baseVal.value * 0.2;
-    const maxHeight = horizonY - 300;
+    const horizonY = svgEl.height.baseVal.value * 0.2;
+    const maxHeight = horizonY - (isMobile ? 1000 : 300);
     sun.y = horizonY - maxHeight * (1 - Math.sin(sun.progress * Math.PI)) - 100;
 
-    // Only draw if within bounds
-    if (sun.y < svgRef.current.height.baseVal.value) {
-      // Only draw visible portions of the sun and rays
-      const sunSize = 60;
+    const themeChangeOffset = 30;
+    onDarkModeChange(sun.y > (horizonY + themeChangeOffset));
+
+    if (sun.y < svgEl.height.baseVal.value) {
+      const isMobile = window.innerWidth <= 768;
+      const sunSize = isMobile ? 25 : 40;
+      const rayLength = isMobile ? 12 : 20;
+      const rayGap = isMobile ? 6 : 10;
       
-      // Create a clip path for the sun
       const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
       clipPath.setAttribute("id", "sunClip");
       
-      // Add a rectangle that covers everything above the horizon
       const clipRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       clipRect.setAttribute("x", "0");
       clipRect.setAttribute("y", "0");
@@ -137,23 +189,18 @@ const PerspectiveRoad = ({ containerWidth }) => {
       clipPath.appendChild(clipRect);
       svgEl.appendChild(clipPath);
 
-      // Create a group for the sun and rays with the clip path
       const sunGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
       sunGroup.setAttribute("clip-path", "url(#sunClip)");
       
-      // Draw the sun
       const sunCircle = rs.circle(sun.x, sun.y, sunSize, {
         fill: '#FFD700',
         fillStyle: 'solid',
         stroke: 'black',
-        strokeWidth: 2,
+        strokeWidth: isMobile ? 1.5 : 2,
         roughness: 0.3
       });
       sunGroup.appendChild(sunCircle);
 
-      // Add rays with gap
-      const rayLength = 20;
-      const rayGap = 10;
       const numRays = 8;
       for (let i = 0; i < numRays; i++) {
         const angle = (i * 2 * Math.PI) / numRays;
@@ -164,23 +211,19 @@ const PerspectiveRoad = ({ containerWidth }) => {
         
         const ray = rs.line(rayX1, rayY1, rayX2, rayY2, {
           stroke: 'black',
-          strokeWidth: 3,
+          strokeWidth: isMobile ? 2 : 3,
           roughness: 0.5
         });
         sunGroup.appendChild(ray);
       }
 
-      // Add the sun group to the main SVG
       svgEl.appendChild(sunGroup);
     }
   };
 
-  // Main animation loop
   const drawFrame = (timestamp) => {
     const svgEl = svgRef.current;
     if (!svgEl) return;
-
-    // Clear the SVG
     while (svgEl.firstChild) {
       svgEl.removeChild(svgEl.firstChild);
     }
@@ -188,53 +231,104 @@ const PerspectiveRoad = ({ containerWidth }) => {
     const rs = rough.svg(svgEl);
     const seed = Math.floor(timestamp / 100);
 
-    // Define dimensions first
     const width = containerWidth;
     const isMobile = window.innerWidth <= 768;
     const height = isMobile ? 250 : 400;
     const horizonY = height * 0.2;
 
-    // Define road coordinates with responsive values
     const startX = width * 0.85;
     const startY = horizonY;
     
-    // Adjust bottom coordinates based on container dimensions
     const leftRoadTopX = startX - 5;
     const leftRoadTopY = startY;
     const leftRoadBottomX = width * 0.3;
     const leftRoadBottomY = height - (height * 0.08);
-
-    // Adjust right road end point
     const rightRoadBottomX = width * 0.7;
 
-    // Update SVG height
     svgEl.setAttribute('height', height);
     svgEl.setAttribute('viewBox', `0 0 ${containerWidth} ${height}`);
 
-    // Add gradient definition
-    const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-    gradient.setAttribute("id", "roadGradient");
-    gradient.setAttribute("x1", "0");
-    gradient.setAttribute("x2", "0");
-    gradient.setAttribute("y1", "0");
-    gradient.setAttribute("y2", "1");
+    let targetStrokeColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--border-color')
+      .trim();
+    if (targetStrokeColor === 'black') targetStrokeColor = '#000000';
+    if (targetStrokeColor === 'white') targetStrokeColor = '#FFFFFF';
+    
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const targetGradientColor = isDark ? '#271B5A' : '#e0e0e0';
+
+    const transition = colorTransitionRef.current;
+    if (
+      (targetStrokeColor !== transition.targetColor ||
+        targetGradientColor !== transition.targetGradientColor) &&
+      !transition.isTransitioning
+    ) {
+      transition.isTransitioning = true;
+      transition.startTime = timestamp;
+      transition.startColor = transition.targetColor || targetStrokeColor;
+      transition.targetColor = targetStrokeColor;
+      transition.startGradientColor = transition.targetGradientColor || targetGradientColor;
+      transition.targetGradientColor = targetGradientColor;
+    }
+
+    let currentStrokeColor = targetStrokeColor;
+    let currentGradientColor = targetGradientColor;
+    
+    if (transition.isTransitioning) {
+      const progress = Math.min((timestamp - transition.startTime) / transition.duration, 1);
+      try {
+        currentStrokeColor = interpolateColor(transition.startColor, transition.targetColor, progress);
+        currentGradientColor = interpolateColor(transition.startGradientColor, transition.targetGradientColor, progress);
+      } catch (error) {
+        console.error('Color interpolation error:', error);
+        currentStrokeColor = targetStrokeColor;
+        currentGradientColor = targetGradientColor;
+      }
+      if (progress === 1) {
+        transition.isTransitioning = false;
+      }
+    }
 
     const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
     stop1.setAttribute("offset", "0%");
-    stop1.setAttribute("style", "stop-color:#e0e0e0;stop-opacity:0.8");
+    stop1.setAttribute("style", `stop-color:${currentGradientColor};stop-opacity:0.8`);
 
     const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
     stop2.setAttribute("offset", "100%");
-    stop2.setAttribute("style", "stop-color:#e0e0e0;stop-opacity:0");
+    stop2.setAttribute("style", `stop-color:${currentGradientColor};stop-opacity:0`);
 
+    const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+    gradient.setAttribute("id", "roadGradient");
+    gradient.setAttribute("x1", "0%");
+    gradient.setAttribute("x2", "0%");
+    gradient.setAttribute("y1", "0%");
+    gradient.setAttribute("y2", "100%");
     gradient.appendChild(stop1);
     gradient.appendChild(stop2);
-    svgEl.appendChild(gradient);
 
-    // 1. Draw sun first (it will be the bottom layer)
+    const defs = svgEl.querySelector("defs") || document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    defs.innerHTML = '';
+    defs.appendChild(gradient);
+    if (!svgEl.querySelector("defs")) {
+      svgEl.appendChild(defs);
+    }
+
+    if (starsRef.current) {
+      updateStarOpacities(isDark, timestamp);
+      starsRef.current.forEach(star => {
+        const starDot = rs.circle(star.x, star.y, star.size, {
+          fill: '#FFFDE7',
+          fillStyle: 'solid',
+          stroke: 'none',
+          roughness: 0.3,
+        });
+        starDot.style.opacity = star.opacity;
+        svgEl.appendChild(starDot);
+      });
+    }
+
     drawSun(rs, svgEl);
 
-    // 2. Draw road shading
     const roadShading = rs.polygon([
       [startX - 5, startY + 2],
       [startX + 5, startY + 3],
@@ -247,25 +341,35 @@ const PerspectiveRoad = ({ containerWidth }) => {
       roughness: 0.5,
       seed
     });
+
+    let shadingOpacity = 1;
+    if (transition.isTransitioning) {
+      const progress = Math.min((timestamp - transition.startTime) / transition.duration, 1);
+      shadingOpacity = isDark ? 1 - progress : progress;
+    } else {
+      shadingOpacity = isDark ? 0 : 1;
+    }
+    
+    roadShading.style.opacity = shadingOpacity;
     svgEl.appendChild(roadShading);
 
-    // 3. Draw horizon line on top
+    // HORIZON LINE (No inline .style.transition now)
     const horizon = rs.line(0, horizonY, width, horizonY, {
-      stroke: 'black',
+      stroke: currentStrokeColor,
       strokeWidth: 2,
       roughness: 0.5,
       seed
     });
     svgEl.appendChild(horizon);
 
-    // 4. Draw left road line
+    // LEFT ROAD LINE
     const leftRoad = rs.line(
       leftRoadTopX, 
       leftRoadTopY, 
       leftRoadBottomX, 
       leftRoadBottomY, 
       {
-        stroke: 'black',
+        stroke: currentStrokeColor,
         strokeWidth: 1.5,
         roughness: 0.8,
         seed: seed + 1
@@ -273,14 +377,14 @@ const PerspectiveRoad = ({ containerWidth }) => {
     );
     svgEl.appendChild(leftRoad);
 
-    // 5. Draw right road line
+    // RIGHT ROAD LINE
     const rightRoad = rs.line(
       startX + 5, 
       startY, 
       rightRoadBottomX, 
       leftRoadBottomY, 
       {
-        stroke: 'black',
+        stroke: currentStrokeColor,
         strokeWidth: 1.5,
         roughness: 0.8,
         seed: seed + 2
@@ -288,11 +392,9 @@ const PerspectiveRoad = ({ containerWidth }) => {
     );
     svgEl.appendChild(rightRoad);
 
-    // Calculate the center line coordinates based on left and right road positions
+    // Dashed center line
     const centerStartX = (leftRoadTopX + (startX + 5)) / 2;
     const centerEndX = (leftRoadBottomX + rightRoadBottomX) / 2;
-    
-    // Draw dashed center line
     const dashSegments = generateDashedLine(
       centerStartX,
       startY,
@@ -302,7 +404,7 @@ const PerspectiveRoad = ({ containerWidth }) => {
     );
     dashSegments.forEach(([x1, y1, x2, y2]) => {
       const dash = rs.line(x1, y1, x2, y2, {
-        stroke: 'black',
+        stroke: currentStrokeColor,
         strokeWidth: 1.5,
         roughness: 0.8,
         seed: seed + 3
@@ -310,40 +412,23 @@ const PerspectiveRoad = ({ containerWidth }) => {
       svgEl.appendChild(dash);
     });
 
-    // --- Animate the sign from horizon to bottom ---
+    // Animate the sign
     const sign = signRef.current;
-
-    // Calculate how far along in the sign's vertical path we are (0..1)
     let t = (sign.y - sign.minY) / (sign.maxY - sign.minY);
     if (t < 0) t = 0;
     if (t > 1) t = 1;
 
-    // Move downward
     sign.y += sign.speed * (0.2 + t * 8);
     if (sign.y > sign.maxY) {
       sign.y = sign.minY;
-      t=0;
+      t = 0;
     }
 
-    // Scale sign
-    const currentScale = sign.minScale + t * (sign.maxScale - sign.minScale);
-
-    // NEW: compute fraction of sign.y along the left road’s y-range
-    let roadT = (sign.y - leftRoadTopY) / (leftRoadBottomY - leftRoadTopY);
-    // clamp 0..1 so we don't go off the line
-    if (roadT < 0) roadT = 0;
-    if (roadT > 1) roadT = 1;
-
-    // Lerp x between the road’s top x and bottom x
-    const signX = leftRoadTopX + roadT * (leftRoadBottomX - leftRoadTopX) * 2.5 - 2;
-
-    // Draw the sign at the interpolated x
-    // drawSign(rs, svgEl, signX, sign.y, currentScale, seed + 4);
+    // Optional: you can still draw a sign if you like, omitted here
 
     animationRef.current = requestAnimationFrame(drawFrame);
   };
 
-  // Add window resize listener
   useEffect(() => {
     const handleResize = () => {
       if (svgRef.current) {
@@ -352,23 +437,18 @@ const PerspectiveRoad = ({ containerWidth }) => {
         svgRef.current.setAttribute('viewBox', `0 0 ${containerWidth} ${height}`);
       }
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [containerWidth]);
 
-  // Add this useEffect to start/stop the animation
   useEffect(() => {
-    // Start the animation
     animationRef.current = requestAnimationFrame(drawFrame);
-
-    // Cleanup function to stop the animation when component unmounts
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [containerWidth]); // Re-run when containerWidth changes
+  }, [containerWidth]);
 
   return (
     <svg
@@ -377,18 +457,22 @@ const PerspectiveRoad = ({ containerWidth }) => {
       height={window.innerWidth <= 768 ? 250 : 400}
       viewBox={`0 0 ${containerWidth} ${window.innerWidth <= 768 ? 250 : 400}`}
       preserveAspectRatio="xMidYMid meet"
-      style={{ background: 'transparent' }}
     />
   );
 };
 
-// New main component that wraps everything
 const NonfictionPage = () => {
-  // 1) Create a ref to the containing div
   const containerRef = useRef(null);
-
-  // 2) State for the current width of the container
   const [containerWidth, setContainerWidth] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -396,11 +480,7 @@ const NonfictionPage = () => {
         setContainerWidth(containerRef.current.offsetWidth);
       }
     };
-
-    // Measure once on mount
     handleResize();
-
-    // Update on browser resize
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -410,15 +490,17 @@ const NonfictionPage = () => {
       <div className="main-container">
         <h1 className="nonfiction-header">Nonfiction.</h1>
         <div className="content-box">
-          {/* 3) Attach the ref here */}
           <div className="animation-section" ref={containerRef}>
-            {/* Pass containerWidth as a prop */}
-            <PerspectiveRoad containerWidth={containerWidth} />
+            {containerWidth > 0 && <PerspectiveRoad 
+              containerWidth={containerWidth}
+              isDarkMode={isDarkMode}
+              onDarkModeChange={setIsDarkMode}
+            />}
           </div>
 
           <div className="text-section">
             <p>
-              We build with optimism and thought. 
+              We build with thought and optimism. 
               Our mission is to use artificial intelligence as a tool 
               to augment human intelligence, output, and ability.
             </p>
