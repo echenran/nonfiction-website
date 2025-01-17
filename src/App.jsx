@@ -108,14 +108,26 @@ const PerspectiveRoad = ({ containerWidth }) => {
 
     // Define dimensions first
     const width = containerWidth;
-    const height = 500;
-    const horizonY = height * 0.3;
+    const isMobile = window.innerWidth <= 768;
+    const height = isMobile ? 250 : 400;
+    const horizonY = height * 0.2;
 
-    // Define road coordinates
-    const startX = width * 0.15;
-    const startY = horizonY;  
-    const endX = width * 0.45;
-    const endY = height - 40;
+    // Define road coordinates with responsive values
+    const startX = width * 0.85;
+    const startY = horizonY;
+    
+    // Adjust bottom coordinates based on container dimensions
+    const leftRoadTopX = startX - 5;
+    const leftRoadTopY = startY;
+    const leftRoadBottomX = width * 0.3;
+    const leftRoadBottomY = height - (height * 0.08);
+
+    // Adjust right road end point
+    const rightRoadBottomX = width * 0.7;
+
+    // Update SVG height
+    svgEl.setAttribute('height', height);
+    svgEl.setAttribute('viewBox', `0 0 ${containerWidth} ${height}`);
 
     // Add gradient definition
     const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
@@ -139,10 +151,10 @@ const PerspectiveRoad = ({ containerWidth }) => {
 
     // 1. Draw road shading first (in background)
     const roadShading = rs.polygon([
-      [startX - 5, startY+2],
-      [startX + 5, startY+3],
-      [width * 0.8, height],
-      [150, height]
+      [startX - 5, startY + 2],
+      [startX + 5, startY + 3],
+      [rightRoadBottomX, leftRoadBottomY],
+      [leftRoadBottomX, leftRoadBottomY]
     ], {
       fill: 'url(#roadGradient)',
       fillStyle: 'solid',
@@ -162,38 +174,45 @@ const PerspectiveRoad = ({ containerWidth }) => {
     svgEl.appendChild(horizon);
 
     // 3. Draw left road line
-    const leftRoadTopX = startX - 5;
-    const leftRoadTopY = startY;
-    const leftRoadBottomX = 150;
-    const leftRoadBottomY = height;
-
-    const leftRoad = rs.line(leftRoadTopX, leftRoadTopY, leftRoadBottomX, leftRoadBottomY, {
-      stroke: 'black',
-      strokeWidth: 1.5,
-      roughness: 0.8,
-      seed: seed + 1
-    });
+    const leftRoad = rs.line(
+      leftRoadTopX, 
+      leftRoadTopY, 
+      leftRoadBottomX, 
+      leftRoadBottomY, 
+      {
+        stroke: 'black',
+        strokeWidth: 1.5,
+        roughness: 0.8,
+        seed: seed + 1
+      }
+    );
     svgEl.appendChild(leftRoad);
 
     // 4. Draw right road line
-    const rightRoad = rs.line(startX + 5, startY, width * 0.8, height, {
-      stroke: 'black',
-      strokeWidth: 1.5,
-      roughness: 0.8,
-      seed: seed + 2
-    });
+    const rightRoad = rs.line(
+      startX + 5, 
+      startY, 
+      rightRoadBottomX, 
+      leftRoadBottomY, 
+      {
+        stroke: 'black',
+        strokeWidth: 1.5,
+        roughness: 0.8,
+        seed: seed + 2
+      }
+    );
     svgEl.appendChild(rightRoad);
 
     // Calculate the center line coordinates based on left and right road positions
-    const centerStartX = (leftRoadTopX + (startX + 5)) / 2;  // Average of left and right X at top
-    const centerEndX = (leftRoadBottomX + (width * 0.8)) / 2;  // Average of left and right X at bottom
+    const centerStartX = (leftRoadTopX + (startX + 5)) / 2;
+    const centerEndX = (leftRoadBottomX + rightRoadBottomX) / 2;
     
-    // Draw dashed center line using these new coordinates
+    // Draw dashed center line
     const dashSegments = generateDashedLine(
       centerStartX,
       startY,
       centerEndX,
-      height - 40,
+      leftRoadBottomY - 40,
       timestamp
     );
     dashSegments.forEach(([x1, y1, x2, y2]) => {
@@ -240,20 +259,39 @@ const PerspectiveRoad = ({ containerWidth }) => {
     animationRef.current = requestAnimationFrame(drawFrame);
   };
 
+  // Add window resize listener
   useEffect(() => {
-    // Kick off the animation
-    animationRef.current = requestAnimationFrame(drawFrame);
-    return () => cancelAnimationFrame(animationRef.current);
-  }, [containerWidth]); 
-  // ^ If the containerWidth changes, re-run the animation logic
+    const handleResize = () => {
+      if (svgRef.current) {
+        const height = Math.min(500, window.innerHeight * 0.6);
+        svgRef.current.setAttribute('height', height);
+        svgRef.current.setAttribute('viewBox', `0 0 ${containerWidth} ${height}`);
+      }
+    };
 
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [containerWidth]);
+
+  // Add this useEffect to start/stop the animation
+  useEffect(() => {
+    // Start the animation
+    animationRef.current = requestAnimationFrame(drawFrame);
+
+    // Cleanup function to stop the animation when component unmounts
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [containerWidth]); // Re-run when containerWidth changes
 
   return (
     <svg
       ref={svgRef}
       width={containerWidth}
-      height={500}
-      viewBox={`0 0 ${containerWidth} 500`}
+      height={window.innerWidth <= 768 ? 250 : 400}
+      viewBox={`0 0 ${containerWidth} ${window.innerWidth <= 768 ? 250 : 400}`}
       preserveAspectRatio="xMidYMid meet"
       style={{ background: 'transparent' }}
     />
@@ -296,11 +334,11 @@ const NonfictionPage = () => {
 
           <div className="text-section">
             <p>
-              We’re a team of optimistic and thoughtful builders. 
+              We build with optimism and thought. 
               Our mission is to use artificial intelligence as a tool 
               to augment human intelligence, output, and ability.
             </p>
-            <p>Subscribe to our newsletter.</p>
+            <p><a href="https://nonfictiontech.substack.com/">Subscribe to our newsletter</a> →</p>
           </div>
 
         </div>
