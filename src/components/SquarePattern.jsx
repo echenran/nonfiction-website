@@ -8,7 +8,7 @@ const SquarePattern = ({ width = 400, height = 400 }) => {
     if (!svgRef.current) return;
 
     const svg = svgRef.current;
-    const rc = rough.svg(svg);
+    const rs = rough.svg(svg);
 
     // Clear any existing content
     while (svg.firstChild) {
@@ -22,29 +22,32 @@ const SquarePattern = ({ width = 400, height = 400 }) => {
 
     // Define square positions relative to center
     const positions = [
-      { x: 0, y: 0 },                    // Center
-      { x: 0, y: -squareSize * 1.5 },    // Top
-      { x: 0, y: squareSize * 1.5 },     // Bottom
-      { x: -squareSize * 1.5, y: 0 },    // Left
-      { x: squareSize * 1.5, y: 0 },     // Right
-      { x: -squareSize, y: -squareSize }, // Top Left
-      { x: squareSize, y: -squareSize },  // Top Right
-      { x: -squareSize, y: squareSize },  // Bottom Left
-      { x: squareSize, y: squareSize },   // Bottom Right
+      { x: 0, y: 0 },
+      { x: 0, y: -squareSize/2 },
+      { x: 0, y: squareSize/2 },
+      { x: -squareSize/2, y: 0 },
+      { x: squareSize/2, y: 0 },
+      { x: -squareSize/2, y: -squareSize/2 },
+      { x: squareSize/2, y: -squareSize/2 },
+      { x: -squareSize/2, y: squareSize/2 },
+      { x: squareSize/2, y: squareSize/2 },
     ];
 
     // Draw each square
     positions.forEach(pos => {
-      const square = rc.rectangle(
+      const square = rs.rectangle(
         centerX + pos.x - squareSize/2,
         centerY + pos.y - squareSize/2,
         squareSize,
         squareSize,
         {
           stroke: 'black',
-          strokeWidth: 1,
-          roughness: 0.5,
-          fill: 'none'
+          strokeWidth: 1.5,
+          roughness: 0,
+          bowing: 0,
+          disableMultiStroke: true,
+          fill: 'none',
+          seed: 1  // Fixed seed for consistent rendering
         }
       );
       svg.appendChild(square);
@@ -65,6 +68,8 @@ const SquarePattern = ({ width = 400, height = 400 }) => {
         left: 0,
         zIndex: 1
       }}
+      shapeRendering="geometricPrecision"
+      vectorEffect="non-scaling-stroke"
     />
   );
 };

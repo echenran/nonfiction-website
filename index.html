@@ -1,12 +1,28 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" class="preload" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logosign.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
     <title>Nonfiction.</title>
+    <style>
+      html.preload [data-theme] {
+        transition: none !important;
+      }
+
+      /* Also, no transitions on box-shadow or link colors: */
+      html.preload .content-box,
+      html.preload a,
+      html.preload a:visited {
+        transition: none !important;
+        color: #000 !important; /* or your actual desired color */
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import rough from 'roughjs';
 import './App.css';
 
@@ -19,7 +19,7 @@ const PerspectiveRoad = ({ containerWidth, isDarkMode, onDarkModeChange }) => {
     x: -50,
     y: 0,
     progress: 0.35,
-    speed: 0.0002
+    speed: 0.0005
   });
 
   const starsRef = useRef(null);
@@ -467,23 +467,47 @@ const NonfictionPage = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }, []);
-
-  useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+  // useEffect(() => {
+  //   const handleResize = () => {
+  //     if (containerRef.current) {
+  //       setContainerWidth(containerRef.current.offsetWidth);
+  //     }
+  //   };
+  //   handleResize();
+  //   window.addEventListener('resize', handleResize);
+  //   return () => window.removeEventListener('resize', handleResize);
+  // }, []);
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+
+    // if (containerRef.current) {
+    //   setContainerWidth(containerRef.current.offsetWidth);
+    // }
+    if (containerRef.current) {
+      setContainerWidth(containerRef.current.offsetWidth);
+      requestAnimationFrame(() => {
+        // Sometimes Safari adjusts again. Measure again if you like:
+        if (containerRef.current) {
+          setContainerWidth(containerRef.current.offsetWidth);
+        }
+      });
+    }
+
+    document.documentElement.classList.remove('preload');
   }, []);
+
+
+  useEffect(() => {
+    let raf;
+    const startDrawing = () => {
+      raf = requestAnimationFrame(drawFrame);
+    };
+    raf = requestAnimationFrame(startDrawing);
+    return () => cancelAnimationFrame(raf);
+  }, [containerWidth]);
 
   return (
     <div className="nonfiction-page">
@@ -491,16 +515,20 @@ const NonfictionPage = () => {
         <h1 className="nonfiction-header">Nonfiction.</h1>
         <div className="content-box">
           <div className="animation-section" ref={containerRef}>
-            {containerWidth > 0 && <PerspectiveRoad 
-              containerWidth={containerWidth}
-              isDarkMode={isDarkMode}
-              onDarkModeChange={setIsDarkMode}
-            />}
+            {containerWidth > 0 && (
+              <>
+                <PerspectiveRoad 
+                  containerWidth={containerWidth}
+                  isDarkMode={isDarkMode}
+                  onDarkModeChange={setIsDarkMode}
+                />
+              </>
+            )}
           </div>
 
           <div className="text-section">
             <p>
-              We build technology with thought and optimism. 
+              We build technology with optimism and thought. 
               Our mission is to use artificial intelligence as a tool 
               to augment human intelligence, output, and ability.
             </p>
